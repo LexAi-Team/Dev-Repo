@@ -1,0 +1,10 @@
+{
+  "description": "Facilitates citizens in managing legal cases and advocates in reviewing and assisting with case details through an AI-powered, themed interface.",
+  "robots": {
+    "index": false
+  },
+  "accessibility": {
+    "addBypassLinks": false,
+    "ignoreReducedMotion": false
+  }
+}

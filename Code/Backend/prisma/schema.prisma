@@ -1,0 +1,121 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum Role {
+  Citizen
+  Advocate
+}
+
+enum VerificationStatus {
+  Pending
+  Verified
+  NotVerified
+}
+
+enum CaseStatus {
+  Draft
+  Saved
+  UnderReview
+}
+
+enum ListType {
+  Required_Document
+  Evidence
+}
+
+enum DocumentStatus {
+  Uploaded
+  Downloaded
+  Expired
+}
+
+model User {
+  user_id       Int       @id @default(autoincrement())
+  name          String
+  role          Role
+  email         String    @unique
+  phone         String    @unique
+  password_hash String
+  created_at    DateTime  @default(now())
+
+  // Relations
+  advocate_profile Advocate?
+  cases_created    Case[]     @relation("CitizenCases")
+  documents        Document[] @relation("UserDocuments")
+}
+
+model Advocate {
+  advocate_id         Int                @id @default(autoincrement())
+  user_id             Int                @unique
+  user                User               @relation(fields: [user_id], references: [user_id], onDelete: Cascade)
+  bar_council_id      String
+  practice_area       String
+  languages           String
+  verification_status VerificationStatus @default(Pending)
+
+  // Relations
+  assigned_cases Case[] @relation("AdvocateCases")
+}
+
+model Case {
+  case_id         Int        @id @default(autoincrement())
+  citizen_id      Int
+  citizen         User       @relation("CitizenCases", fields: [citizen_id], references: [user_id], onDelete: Cascade)
+  advocate_id     Int?
+  advocate        Advocate?  @relation("AdvocateCases", fields: [advocate_id], references: [advocate_id], onDelete: SetNull)
+  category        String
+  sub_issue       String
+  status          CaseStatus @default(Draft)
+  ai_summary      String?    @db.Text
+  procedure_guide String?    @db.Text
+  created_at      DateTime   @default(now())
+  updated_at      DateTime   @updatedAt
+
+  // Relations
+  questions_answers CaseQuestionsAnswers[]
+  documents         Document[]
+  checklist_items   ChecklistItem[]
+}
+
+model CaseQuestionsAnswers {
+  qa_id         Int    @id @default(autoincrement())
+  case_id       Int
+  case          Case   @relation(fields: [case_id], references: [case_id], onDelete: Cascade)
+  question_key  String
+  question_text String
+  answer_value  String
+}
+
+model Document {
+  document_id Int            @id @default(autoincrement())
+  case_id     Int
+  case        Case           @relation(fields: [case_id], references: [case_id], onDelete: Cascade)
+  uploaded_by Int
+  uploader    User           @relation("UserDocuments", fields: [uploaded_by], references: [user_id], onDelete: Cascade)
+  file_name   String
+  file_url    String
+  category    String
+  uploaded_at DateTime       @default(now())
+  expires_at  DateTime?
+  status      DocumentStatus @default(Uploaded)
+
+  // Relations
+  checklist_items ChecklistItem[]
+}
+
+model ChecklistItem {
+  checklist_item_id  Int       @id @default(autoincrement())
+  case_id            Int
+  case               Case      @relation(fields: [case_id], references: [case_id], onDelete: Cascade)
+  list_type          ListType
+  item_label         String
+  is_collected       Boolean   @default(false)
+  linked_document_id Int?
+  linked_document    Document? @relation(fields: [linked_document_id], references: [document_id], onDelete: SetNull)
+}

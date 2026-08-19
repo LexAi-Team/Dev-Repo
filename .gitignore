@@ -1,0 +1,18 @@
+# Uploads
+uploads/
+uploads/temp/
+
+# Environment
+.env
+.env.local
+.env.production
+
+# Node
+node_modules/
+dist/
+build/
+*.log
+npm-debug.log*
+
+# Firebase service account and DB credentials
+Code/DataBase/*.json
