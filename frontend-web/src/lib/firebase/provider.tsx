@@ -66,7 +66,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     try {
       const idToken = await currentUser.getIdToken(true);
-      const response = await fetch("http://localhost:4000/api/auth/sync", {
+      const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api";
+      const response = await fetch(`${API_BASE_URL}/auth/sync`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
