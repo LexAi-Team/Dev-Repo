@@ -1,0 +1,47 @@
+{
+  "project_info": {
+    "project_number": "94992478302",
+    "project_id": "lexconnect-52bc9",
+    "storage_bucket": "lexconnect-52bc9.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:94992478302:android:8aacbd105a0b209247c4cf",
+        "android_client_info": {
+          "package_name": "com.lexconnect.app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "94992478302-tk16ej254ea494trfcgi8f9lh8cdi0so.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.lexconnect.app",
+            "certificate_hash": "090b2b8ed68c89ea0691f9e9ecdece0c88cccbf4"
+          }
+        },
+        {
+          "client_id": "94992478302-4ea6c9stb8ialoohi6g955obrin5nj7k.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDarsZSrL0BkNiy4mP_k5J8sWxN6R2sj-I"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "94992478302-4ea6c9stb8ialoohi6g955obrin5nj7k.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

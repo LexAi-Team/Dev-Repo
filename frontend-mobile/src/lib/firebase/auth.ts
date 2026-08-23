@@ -1,6 +1,7 @@
 import {
   GoogleAuthProvider,
   signInWithPopup,
+  signInWithCredential,
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
   signOut,
@@ -9,6 +10,8 @@ import {
   User,
   UserCredential,
 } from "firebase/auth";
+import { Capacitor } from "@capacitor/core";
+import { FirebaseAuthentication } from "@capacitor-firebase/authentication";
 import { auth } from "./config";
 
 const googleProvider = new GoogleAuthProvider();
@@ -25,10 +28,21 @@ export async function signInWithEmail(email: string, password: string): Promise<
 }
 
 export async function signInWithGoogle(): Promise<UserCredential> {
+  if (Capacitor.isNativePlatform()) {
+    const result = await FirebaseAuthentication.signInWithGoogle();
+    if (!result || !result.credential || !result.credential.idToken) {
+      throw new Error("Google Sign-In failed or was cancelled.");
+    }
+    const credential = GoogleAuthProvider.credential(result.credential.idToken);
+    return signInWithCredential(auth, credential);
+  }
   return signInWithPopup(auth, googleProvider);
 }
 
 export async function signOutUser(): Promise<void> {
+  if (Capacitor.isNativePlatform()) {
+    await FirebaseAuthentication.signOut().catch(() => {});
+  }
   return signOut(auth);
 }
 
@@ -45,3 +59,4 @@ export async function getCurrentIdToken(): Promise<string | null> {
   if (!currentUser) return null;
   return currentUser.getIdToken(true);
 }
+
