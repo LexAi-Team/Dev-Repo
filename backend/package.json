@@ -5,7 +5,7 @@
   "main": "dist/server.js",
   "scripts": {
     "dev": "nodemon --watch src -e ts --exec ts-node src/server.ts",
-    "build": "tsc",
+    "build": "prisma generate --schema=../database/prisma/schema.prisma && tsc",
     "start": "node dist/server.js",
     "lint": "eslint . --ext .ts",
     "prisma:generate": "prisma generate --schema=../database/prisma/schema.prisma",

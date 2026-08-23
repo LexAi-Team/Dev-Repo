@@ -1,0 +1,66 @@
+@import "tailwindcss";
+
+@theme {
+  --color-cream: #F8F4EC;
+  --color-cream-light: #FFFDF8;
+  --color-cream-dark: #F1E9DA;
+  --color-dark-brown: #21170F;
+  --color-deep-brown: #332218;
+  --color-golden-brown: #A66A22;
+  --color-warm-gold: #C58A35;
+  --color-light-gold: #D9B16A;
+  --color-muted-brown: #766B5F;
+  --color-border-cream: #E2D5C1;
+
+  --font-serif: var(--font-serif-display), Georgia, serif;
+  --font-sans: var(--font-sans-body), system-ui, sans-serif;
+}
+
+:root {
+  --background: #F8F4EC;
+  --foreground: #21170F;
+}
+
+body {
+  background-color: #F8F4EC;
+  color: #21170F;
+  font-family: var(--font-sans);
+  overflow-x: hidden;
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+}
+::-webkit-scrollbar-track {
+  background: #F8F4EC;
+}
+::-webkit-scrollbar-thumb {
+  background: #E2D5C1;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #C58A35;
+}
+
+/* Subtle background particle keyframes */
+@keyframes floatParticle {
+  0%, 100% {
+    transform: translateY(0px) translateX(0px);
+    opacity: 0.3;
+  }
+  50% {
+    transform: translateY(-15px) translateX(8px);
+    opacity: 0.7;
+  }
+}
+
+.animate-particle-1 {
+  animation: floatParticle 8s ease-in-out infinite;
+}
+.animate-particle-2 {
+  animation: floatParticle 11s ease-in-out infinite 2s;
+}
+.animate-particle-3 {
+  animation: floatParticle 9s ease-in-out infinite 4s;
+}
