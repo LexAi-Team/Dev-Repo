@@ -115,7 +115,87 @@ export interface LawyerDashboardResponse {
       pendingTasks: number;
       highPriorityTasks: number;
     };
+    upcomingHearingsList?: Array<{
+      id: string;
+      title: string;
+      description?: string | null;
+      type: string;
+      startAt: string;
+      endAt: string;
+      location?: string | null;
+      case?: { id: string; title: string; caseNumber: string; court: string } | null;
+    }>;
+    activeCasesList?: CaseItem[];
+    recentTasks?: Array<{
+      id: string;
+      title: string;
+      priority: string;
+      status: string;
+      dueAt?: string | null;
+      case?: { id: string; title: string; caseNumber: string } | null;
+    }>;
   };
+}
+
+export interface CaseItem {
+  id: string;
+  caseNumber: string;
+  title: string;
+  description?: string | null;
+  caseType: string;
+  status: string;
+  priority: string;
+  court: string;
+  clientName: string;
+  opposingParty: string;
+  nextHearingAt?: string | null;
+  createdById: string;
+  createdAt: string;
+  updatedAt: string;
+  collaborators?: Array<{
+    id: string;
+    role: string;
+    user: { id: string; name: string; email: string; avatarUrl?: string | null };
+  }>;
+  tasks?: Array<{
+    id: string;
+    title: string;
+    description?: string | null;
+    status: string;
+    priority: string;
+    dueAt?: string | null;
+  }>;
+  events?: Array<{
+    id: string;
+    title: string;
+    type: string;
+    startAt: string;
+    endAt: string;
+    location?: string | null;
+  }>;
+}
+
+export interface CaseDocumentItem {
+  id: string;
+  caseId: string;
+  name: string;
+  fileUrl: string;
+  fileType: string;
+  fileSize: number;
+  uploadedById: string;
+  createdAt: string;
+  uploadedBy?: { id: string; name: string; email?: string };
+}
+
+export interface CaseNoteItem {
+  id: string;
+  caseId: string;
+  title: string;
+  content: string;
+  isPrivate: boolean;
+  createdById: string;
+  createdAt: string;
+  createdBy?: { id: string; name: string };
 }
 
 export interface CaseScenarioData {
@@ -183,8 +263,6 @@ export const api = {
       method: "PATCH",
       body: JSON.stringify(data),
     }),
-  getCases: () => apiFetch<{ status: string; data: { cases: unknown[] } }>("/cases"),
-  getTasks: () => apiFetch<{ status: string; data: { tasks: unknown[] } }>("/tasks"),
   getNotifications: () =>
     apiFetch<{ status: string; data: { notifications: unknown[] } }>("/notifications"),
   markNotificationRead: (id: string) =>
@@ -256,4 +334,68 @@ export const api = {
     ),
   getPracticeHistory: () =>
     apiFetch<{ status: string; data: { history: SimulationSessionData[] } }>("/simulator/sessions"),
+  getCases: () => apiFetch<{ status: string; data: { cases: CaseItem[] } }>("/cases"),
+  getCase: (id: string) => apiFetch<{ status: string; data: { case: CaseItem; role: string } }>(`/cases/${id}`),
+  createCase: (data: Partial<CaseItem>) =>
+    apiFetch<{ status: string; data: { case: CaseItem } }>("/cases", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+  updateCase: (id: string, data: Partial<CaseItem>) =>
+    apiFetch<{ status: string; data: { case: CaseItem } }>(`/cases/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    }),
+  getCaseCollaborators: (caseId: string) =>
+    apiFetch<{ status: string; data: { collaborators: unknown[] } }>(`/cases/${caseId}/collaborators`),
+  addCaseCollaborator: (caseId: string, userEmail: string, role: string) =>
+    apiFetch<{ status: string; data: { collaborator: unknown } }>(`/cases/${caseId}/collaborators`, {
+      method: "POST",
+      body: JSON.stringify({ userEmail, role }),
+    }),
+  removeCaseCollaborator: (caseId: string, userId: string) =>
+    apiFetch<{ status: string; message: string }>(`/cases/${caseId}/collaborators/${userId}`, {
+      method: "DELETE",
+    }),
+  getCaseDocuments: (caseId: string) =>
+    apiFetch<{ status: string; data: { documents: CaseDocumentItem[] } }>(`/cases/${caseId}/documents`),
+  addCaseDocument: (caseId: string, doc: { name: string; fileUrl: string; fileType?: string; fileSize?: number }) =>
+    apiFetch<{ status: string; data: { document: CaseDocumentItem } }>(`/cases/${caseId}/documents`, {
+      method: "POST",
+      body: JSON.stringify(doc),
+    }),
+  deleteCaseDocument: (caseId: string, docId: string) =>
+    apiFetch<{ status: string; message: string }>(`/cases/${caseId}/documents/${docId}`, {
+      method: "DELETE",
+    }),
+  getCaseNotes: (caseId: string) =>
+    apiFetch<{ status: string; data: { notes: CaseNoteItem[] } }>(`/cases/${caseId}/notes`),
+  addCaseNote: (caseId: string, note: { title: string; content: string; isPrivate?: boolean }) =>
+    apiFetch<{ status: string; data: { note: CaseNoteItem } }>(`/cases/${caseId}/notes`, {
+      method: "POST",
+      body: JSON.stringify(note),
+    }),
+  deleteCaseNote: (caseId: string, noteId: string) =>
+    apiFetch<{ status: string; message: string }>(`/cases/${caseId}/notes/${noteId}`, {
+      method: "DELETE",
+    }),
+  getTasks: (caseId?: string) =>
+    apiFetch<{ status: string; data: { tasks: unknown[] } }>(caseId ? `/tasks?caseId=${caseId}` : "/tasks"),
+  createTask: (taskData: { title: string; description?: string; priority?: string; dueAt?: string; assignedToId?: string; caseId?: string }) =>
+    apiFetch<{ status: string; data: { task: unknown } }>("/tasks", {
+      method: "POST",
+      body: JSON.stringify(taskData),
+    }),
+  updateTask: (taskId: string, updateData: { status?: string; priority?: string; dueAt?: string }) =>
+    apiFetch<{ status: string; data: { task: unknown } }>(`/tasks/${taskId}`, {
+      method: "PATCH",
+      body: JSON.stringify(updateData),
+    }),
+  getCalendarEvents: (caseId?: string) =>
+    apiFetch<{ status: string; data: { events: unknown[] } }>(caseId ? `/calendar?caseId=${caseId}` : "/calendar"),
+  createCalendarEvent: (eventData: { title: string; description?: string; type: string; startAt: string; endAt: string; location?: string; caseId?: string }) =>
+    apiFetch<{ status: string; data: { event: unknown } }>("/calendar", {
+      method: "POST",
+      body: JSON.stringify(eventData),
+    }),
 };

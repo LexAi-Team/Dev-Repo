@@ -113,6 +113,56 @@ router.get("/lawyer", requireAuth, requireRole("LAWYER"), async (req: Authentica
       },
     });
 
+    // Upcoming Hearings List
+    const upcomingHearingsList = await prisma.calendarEvent.findMany({
+      where: {
+        OR: [
+          { createdById: userId },
+          { case: { collaborators: { some: { userId } } } },
+        ],
+        type: "HEARING",
+        startAt: { gte: now },
+      },
+      include: {
+        case: { select: { id: true, title: true, caseNumber: true, court: true } },
+      },
+      orderBy: { startAt: "asc" },
+      take: 5,
+    });
+
+    // Active Cases List
+    const activeCasesList = await prisma.case.findMany({
+      where: {
+        collaborators: { some: { userId } },
+        status: "ACTIVE",
+      },
+      include: {
+        collaborators: {
+          include: {
+            user: { select: { id: true, name: true, email: true } },
+          },
+        },
+      },
+      orderBy: { updatedAt: "desc" },
+      take: 5,
+    });
+
+    // Recent Tasks List
+    const recentTasks = await prisma.task.findMany({
+      where: {
+        OR: [
+          { assignedToId: userId },
+          { createdById: userId },
+        ],
+        status: { in: ["TODO", "IN_PROGRESS"] },
+      },
+      include: {
+        case: { select: { id: true, title: true, caseNumber: true } },
+      },
+      orderBy: { dueAt: "asc" },
+      take: 5,
+    });
+
     res.status(200).json({
       status: "success",
       data: {
@@ -122,6 +172,9 @@ router.get("/lawyer", requireAuth, requireRole("LAWYER"), async (req: Authentica
           pendingTasks: pendingTasksCount,
           highPriorityTasks: highPriorityTasksCount,
         },
+        upcomingHearingsList,
+        activeCasesList,
+        recentTasks,
       },
     });
   } catch (error: unknown) {

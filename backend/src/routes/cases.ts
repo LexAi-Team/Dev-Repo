@@ -397,4 +397,184 @@ router.delete("/:id/collaborators/:userId", requireAuth, async (req: Request, re
   }
 });
 
+// GET /api/cases/:id/documents - List case documents
+router.get("/:id/documents", requireAuth, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const userId = req.user?.id;
+    const caseId = req.params.id;
+    if (!userId) return res.status(401).json({ status: "fail", message: "Unauthorized" });
+
+    const collab = await getCollaboratorRecord(caseId, userId);
+    if (!collab) return res.status(403).json({ status: "fail", message: "Access Denied: Not a case collaborator." });
+
+    const documents = await prisma.caseDocument.findMany({
+      where: { caseId },
+      include: { uploadedBy: { select: { id: true, name: true, email: true } } },
+      orderBy: { createdAt: "desc" },
+    });
+
+    res.status(200).json({ status: "success", data: { documents } });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// POST /api/cases/:id/documents - Upload case document metadata
+router.post("/:id/documents", requireAuth, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const userId = req.user?.id;
+    const caseId = req.params.id;
+    if (!userId) return res.status(401).json({ status: "fail", message: "Unauthorized" });
+
+    const collab = await getCollaboratorRecord(caseId, userId);
+    if (!collab) return res.status(403).json({ status: "fail", message: "Access Denied: Not a case collaborator." });
+
+    const documentSchema = z.object({
+      name: z.string().min(1),
+      fileUrl: z.string().min(1),
+      fileType: z.string().default("DOCUMENT"),
+      fileSize: z.number().int().default(1024),
+    });
+
+    const parseResult = documentSchema.safeParse(req.body);
+    if (!parseResult.success) {
+      return res.status(400).json({ status: "fail", message: "Invalid document data.", errors: parseResult.error.errors });
+    }
+
+    const { name, fileUrl, fileType, fileSize } = parseResult.data;
+
+    const document = await prisma.caseDocument.create({
+      data: {
+        caseId,
+        name,
+        fileUrl,
+        fileType,
+        fileSize,
+        uploadedById: userId,
+      },
+      include: { uploadedBy: { select: { id: true, name: true } } },
+    });
+
+    res.status(201).json({ status: "success", data: { document } });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// DELETE /api/cases/:id/documents/:documentId - Delete case document
+router.delete("/:id/documents/:documentId", requireAuth, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const userId = req.user?.id;
+    const caseId = req.params.id;
+    const documentId = req.params.documentId;
+    if (!userId) return res.status(401).json({ status: "fail", message: "Unauthorized" });
+
+    const collab = await getCollaboratorRecord(caseId, userId);
+    if (!collab) return res.status(403).json({ status: "fail", message: "Access Denied: Not a case collaborator." });
+
+    const doc = await prisma.caseDocument.findUnique({ where: { id: documentId } });
+    if (!doc || doc.caseId !== caseId) return res.status(404).json({ status: "fail", message: "Document not found." });
+
+    await prisma.caseDocument.delete({ where: { id: documentId } });
+
+    res.status(200).json({ status: "success", message: "Document removed." });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// GET /api/cases/:id/notes - List case notes
+router.get("/:id/notes", requireAuth, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const userId = req.user?.id;
+    const caseId = req.params.id;
+    if (!userId) return res.status(401).json({ status: "fail", message: "Unauthorized" });
+
+    const collab = await getCollaboratorRecord(caseId, userId);
+    if (!collab) return res.status(403).json({ status: "fail", message: "Access Denied: Not a case collaborator." });
+
+    const notes = await prisma.caseNote.findMany({
+      where: {
+        caseId,
+        OR: [
+          { isPrivate: false },
+          { createdById: userId },
+        ],
+      },
+      include: { createdBy: { select: { id: true, name: true } } },
+      orderBy: { createdAt: "desc" },
+    });
+
+    res.status(200).json({ status: "success", data: { notes } });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// POST /api/cases/:id/notes - Add case note
+router.post("/:id/notes", requireAuth, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const userId = req.user?.id;
+    const caseId = req.params.id;
+    if (!userId) return res.status(401).json({ status: "fail", message: "Unauthorized" });
+
+    const collab = await getCollaboratorRecord(caseId, userId);
+    if (!collab) return res.status(403).json({ status: "fail", message: "Access Denied: Not a case collaborator." });
+
+    const noteSchema = z.object({
+      title: z.string().min(1),
+      content: z.string().min(1),
+      isPrivate: z.boolean().default(true),
+    });
+
+    const parseResult = noteSchema.safeParse(req.body);
+    if (!parseResult.success) {
+      return res.status(400).json({ status: "fail", message: "Invalid note data.", errors: parseResult.error.errors });
+    }
+
+    const { title, content, isPrivate } = parseResult.data;
+
+    const note = await prisma.caseNote.create({
+      data: {
+        caseId,
+        title,
+        content,
+        isPrivate,
+        createdById: userId,
+      },
+      include: { createdBy: { select: { id: true, name: true } } },
+    });
+
+    res.status(201).json({ status: "success", data: { note } });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// DELETE /api/cases/:id/notes/:noteId - Delete case note
+router.delete("/:id/notes/:noteId", requireAuth, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const userId = req.user?.id;
+    const caseId = req.params.id;
+    const noteId = req.params.noteId;
+    if (!userId) return res.status(401).json({ status: "fail", message: "Unauthorized" });
+
+    const collab = await getCollaboratorRecord(caseId, userId);
+    if (!collab) return res.status(403).json({ status: "fail", message: "Access Denied: Not a case collaborator." });
+
+    const note = await prisma.caseNote.findUnique({ where: { id: noteId } });
+    if (!note || note.caseId !== caseId) return res.status(404).json({ status: "fail", message: "Note not found." });
+
+    if (note.createdById !== userId && collab.role !== CollaboratorRole.LEAD_LAWYER) {
+      return res.status(403).json({ status: "fail", message: "Access Denied: Only note author or Lead Lawyer can delete this note." });
+    }
+
+    await prisma.caseNote.delete({ where: { id: noteId } });
+
+    res.status(200).json({ status: "success", message: "Note removed." });
+  } catch (error) {
+    next(error);
+  }
+});
+
 export default router;

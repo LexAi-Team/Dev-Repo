@@ -15,12 +15,13 @@ import {
   Briefcase,
   CheckSquare,
   Network,
-  MessageSquare,
   GraduationCap,
   ShieldCheck,
   Activity,
   Settings,
   LogOut,
+  Search,
+  BarChart3,
 } from "lucide-react";
 
 interface SidebarProps {
@@ -47,14 +48,14 @@ export default function Sidebar({ role, onClose }: SidebarProps) {
       case "LAWYER":
         return [
           { label: "Dashboard", href: "/lawyer/dashboard", icon: LayoutDashboard },
-          { label: "My Cases", href: "/lawyer/cases", icon: Briefcase },
-          { label: "Hearings", href: "/lawyer/hearings", icon: Scale },
-          { label: "Tasks", href: "/lawyer/tasks", icon: CheckSquare },
+          { label: "Legal Research", href: "/lawyer/research", icon: Search },
           { label: "AI Legal Assistant", href: "/lawyer/assistant", icon: Sparkles },
+          { label: "Case Workspace", href: "/lawyer/cases", icon: Briefcase },
           { label: "Collaboration", href: "/lawyer/collaboration", icon: Network },
-          { label: "Messages", href: "/lawyer/messages", icon: MessageSquare },
-          { label: "Notifications", href: "/lawyer/notifications", icon: Bell },
+          { label: "Tasks & Calendar", href: "/lawyer/tasks", icon: CheckSquare },
+          { label: "Reports & Analytics", href: "/lawyer/analytics", icon: BarChart3 },
           { label: "Profile", href: "/lawyer/profile", icon: User },
+          { label: "Settings", href: "/lawyer/settings", icon: Settings },
         ];
       case "ADMIN":
         return [

@@ -28,6 +28,8 @@ model User {
   assignedTasks      Task[]             @relation("AssignedTasks")
   createdTasks       Task[]             @relation("CreatedTasks")
   simulationSessions SimulationSession[]
+  caseDocuments      CaseDocument[]
+  caseNotes          CaseNote[]
 }
 
 model StudentProfile {
@@ -75,6 +77,80 @@ model Case {
   events        CalendarEvent[]
   collaborators CaseCollaborator[]
   tasks         Task[]
+  documents     CaseDocument[]
+  notes         CaseNote[]
+  facts         CaseFact[]
+  parties       CaseParty[]
+  researches    CaseResearch[]
+}
+
+model CaseFact {
+  id          String   @id @default(uuid())
+  caseId      String
+  title       String
+  description String?
+  isImportant Boolean  @default(false)
+  orderIndex  Int      @default(0)
+  createdById String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  case        Case     @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  createdBy   User     @relation(fields: [createdById], references: [id], onDelete: Cascade)
+}
+
+model CaseParty {
+  id          String   @id @default(uuid())
+  caseId      String
+  name        String
+  partyType   String   @default("PETITIONER")
+  role        String?
+  contactInfo String?
+  notes       String?
+  createdById String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  case        Case     @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  createdBy   User     @relation(fields: [createdById], references: [id], onDelete: Cascade)
+}
+
+model CaseResearch {
+  id          String   @id @default(uuid())
+  caseId      String
+  query       String
+  aiAnalysis  String
+  sources     String?
+  citations   String?
+  createdById String
+  createdAt   DateTime @default(now())
+  case        Case     @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  createdBy   User     @relation(fields: [createdById], references: [id], onDelete: Cascade)
+}
+
+model CaseDocument {
+  id           String   @id @default(uuid())
+  caseId       String
+  name         String
+  fileUrl      String
+  fileType     String
+  fileSize     Int
+  uploadedById String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  case         Case     @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  uploadedBy   User     @relation(fields: [uploadedById], references: [id], onDelete: Cascade)
+}
+
+model CaseNote {
+  id          String   @id @default(uuid())
+  caseId      String
+  title       String
+  content     String
+  isPrivate   Boolean  @default(true)
+  createdById String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  case        Case     @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  createdBy   User     @relation(fields: [createdById], references: [id], onDelete: Cascade)
 }
 
 model CaseCollaborator {
