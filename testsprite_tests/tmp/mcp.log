@@ -1,0 +1,5 @@
+{"timestamp":"2026-08-20T06:04:35.690Z","level":"info","message":"Tool invocation started","correlationId":"334cd25b-592d-42a6-96ba-ac2ee66432a1","tool":"testsprite_generate_code_and_execute"}
+{"timestamp":"2026-08-20T06:04:35.812Z","level":"info","message":"Tool invocation completed","correlationId":"334cd25b-592d-42a6-96ba-ac2ee66432a1","tool":"testsprite_generate_code_and_execute"}
+{"timestamp":"2026-08-20T06:04:35.693Z","level":"error","message":"readConfig error: Error: ENOENT: no such file or directory, open 'd:\\Dev-Repo\\testsprite_tests\\tmp\\config.json'","correlationId":"334cd25b-592d-42a6-96ba-ac2ee66432a1","tool":"testsprite_generate_code_and_execute"}
+{"timestamp":"2026-08-20T06:34:35.744Z","level":"info","message":"Tool invocation started","correlationId":"9067aa8a-dfca-46d3-980f-8342672fbd60","tool":"testsprite_generate_code_and_execute"}
+{"timestamp":"2026-08-20T06:34:35.770Z","level":"info","message":"Tool invocation completed","correlationId":"9067aa8a-dfca-46d3-980f-8342672fbd60","tool":"testsprite_generate_code_and_execute"}

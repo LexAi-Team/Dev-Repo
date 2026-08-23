@@ -1,0 +1,12 @@
+{
+  "status": "init",
+  "executionArgs": {
+    "projectName": "Dev-Repo",
+    "projectPath": "d:\\Dev-Repo",
+    "testIds": [],
+    "additionalInstruction": "Execute regression suite for simulator evaluation failure separation, authentication, and backend service stability.",
+    "serverMode": "development",
+    "envs": {},
+    "envsFile": "C:\\Users\\S KAVIN RAJ\\.testsprite\\mcp\\session-bff142aae8852938.json"
+  }
+}
