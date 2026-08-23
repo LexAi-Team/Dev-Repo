@@ -8,7 +8,7 @@ import ConversationList from "./conversation-list";
 import ChatMessages from "./chat-messages";
 import ChatInput from "./chat-input";
 
-export default function AIChatShell() {
+export default function AIChatShell({ caseId }: { caseId?: string }) {
   const { user } = useAuth();
   const [conversations, setConversations] = useState<AIConversationItem[]>([]);
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
@@ -16,12 +16,25 @@ export default function AIChatShell() {
   const [loading, setLoading] = useState(false);
   const [fetchingHistory, setFetchingHistory] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
+  const [caseTitle, setCaseTitle] = useState<string | null>(null);
+
+  // Load case title if caseId is provided
+  useEffect(() => {
+    if (!caseId) return;
+    api.getCase(caseId)
+      .then((res) => {
+        if (res && res.status === "success") {
+          setCaseTitle(res.data.case.title);
+        }
+      })
+      .catch(console.error);
+  }, [caseId]);
 
   // Load previous conversations list
   useEffect(() => {
     async function loadConversations() {
       try {
-        const response = await api.getConversations();
+        const response = await api.getConversations(caseId);
         if (response && response.status === "success") {
           setConversations(response.data.conversations || []);
         }
@@ -32,7 +45,7 @@ export default function AIChatShell() {
       }
     }
     loadConversations();
-  }, []);
+  }, [caseId]);
 
   // Load messages when an active conversation is selected
   useEffect(() => {
@@ -98,7 +111,7 @@ export default function AIChatShell() {
     setMessages((prev) => [...prev, tempUserMsg]);
 
     try {
-      const res = await api.sendChatMessage(text, activeConversationId || undefined);
+      const res = await api.sendChatMessage(text, activeConversationId || undefined, caseId);
       if (res && res.status === "success") {
         setActiveConversationId(res.data.conversationId);
         setMessages((prev) => {
@@ -108,7 +121,7 @@ export default function AIChatShell() {
         });
 
         // Refresh conversation history list in sidebar
-        const convsRes = await api.getConversations();
+        const convsRes = await api.getConversations(caseId);
         if (convsRes && convsRes.status === "success") {
           setConversations(convsRes.data.conversations || []);
         }
@@ -156,12 +169,21 @@ export default function AIChatShell() {
               <Sparkles className="w-4 h-4" />
             </div>
             <div>
-              <h2 className="font-serif font-bold text-sm text-[#21170F]">LEXAI Legal Assistant</h2>
+              <h2 className="font-serif font-bold text-sm text-[#21170F]">
+                LEXAI Legal Assistant {caseTitle ? `— ${caseTitle}` : ""}
+              </h2>
               <p className="text-[11px] text-[#766B5F]">
-                Powered by Statutory RAG & Statutory Reasoning Engine
+                {caseTitle
+                  ? "Grounded on case facts, parties, notes, and uploaded documents"
+                  : "Powered by Statutory RAG & Statutory Reasoning Engine"}
               </p>
             </div>
           </div>
+          {caseTitle && (
+            <span className="text-[9px] font-bold uppercase tracking-wider text-amber-800 bg-amber-100 border border-amber-200 px-2.5 py-1 rounded-full shrink-0">
+              Case-Aware Session
+            </span>
+          )}
         </div>
 
         {/* Error Alert Banner */}

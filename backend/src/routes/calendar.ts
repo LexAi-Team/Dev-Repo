@@ -3,6 +3,7 @@ import { requireAuth, requireRole } from "../middleware/auth.js";
 import prisma from "../config/prisma.js";
 import { EventType } from "@prisma/client";
 import { z } from "zod";
+import { logCaseActivity } from "./cases.js";
 
 const router = Router();
 
@@ -141,6 +142,10 @@ router.post("/", requireAuth, async (req: Request, res: Response, next: NextFunc
         createdById: userId,
       },
     });
+
+    if (event.caseId) {
+      await logCaseActivity(event.caseId, userId, "CREATE_EVENT", `Scheduled event: ${event.title} (${event.type})`);
+    }
 
     res.status(201).json({ status: "success", data: { event } });
   } catch (error) {

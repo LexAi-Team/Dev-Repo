@@ -3,6 +3,7 @@ import { requireAuth, requireRole } from "../middleware/auth.js";
 import prisma from "../config/prisma.js";
 import { TaskStatus, CasePriority } from "@prisma/client";
 import { z } from "zod";
+import { logCaseActivity } from "./cases.js";
 
 const router = Router();
 
@@ -144,6 +145,10 @@ router.post("/", requireAuth, async (req: Request, res: Response, next: NextFunc
       });
     }
 
+    if (task.caseId) {
+      await logCaseActivity(task.caseId, userId, "CREATE_TASK", `Created task: ${task.title}`);
+    }
+
     res.status(201).json({ status: "success", data: { task } });
   } catch (error) {
     next(error);
@@ -213,6 +218,10 @@ router.patch("/:id", requireAuth, async (req: Request, res: Response, next: Next
         dueAt: updateData.dueAt ? new Date(updateData.dueAt) : undefined,
       },
     });
+
+    if (updatedTask.caseId) {
+      await logCaseActivity(updatedTask.caseId, userId, "UPDATE_TASK", `Updated task status to ${updatedTask.status}: ${updatedTask.title}`);
+    }
 
     res.status(200).json({ status: "success", data: { task: updatedTask } });
   } catch (error) {

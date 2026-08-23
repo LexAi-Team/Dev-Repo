@@ -4,6 +4,7 @@ import { lexaiService } from "../services/lexai.service.js";
 import { contextResolverService } from "../services/context-resolver.service.js";
 import { memoryContextStore } from "../cache/memory-context-store.js";
 import { conversationService } from "../services/conversation.service.js";
+import prisma from "../config/prisma.js";
 
 const router = Router();
 
@@ -11,7 +12,8 @@ const router = Router();
 router.get("/conversations", requireAuth, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const userId = req.user!.id;
-    const conversations = await conversationService.getConversations(userId);
+    const caseId = req.query.caseId as string | undefined;
+    const conversations = await conversationService.getConversations(userId, caseId);
     res.status(200).json({
       status: "success",
       data: { conversations },
@@ -95,7 +97,7 @@ router.delete("/conversations/:id", requireAuth, async (req: AuthenticatedReques
 router.post("/chat", requireAuth, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const userId = req.user!.id;
-    const { conversationId, message } = req.body as { conversationId?: string; message?: string };
+    const { conversationId, message, caseId } = req.body as { conversationId?: string; message?: string; caseId?: string };
 
     if (!message || typeof message !== "string" || !message.trim()) {
       res.status(400).json({
@@ -110,7 +112,7 @@ router.post("/chat", requireAuth, async (req: AuthenticatedRequest, res: Respons
 
     // 1. Resolve or create conversation
     if (!targetConvId) {
-      const newConv = await conversationService.createConversation(userId, trimmedMessage);
+      const newConv = await conversationService.createConversation(userId, trimmedMessage, caseId);
       targetConvId = newConv.id;
     } else {
       const existing = await conversationService.getConversation(userId, targetConvId);
@@ -125,6 +127,93 @@ router.post("/chat", requireAuth, async (req: AuthenticatedRequest, res: Respons
 
     const convId = targetConvId!;
 
+    // Resolve caseId from conversation if not supplied in body
+    const convRecord = await prisma.aIConversation.findUnique({
+      where: { id: convId },
+    });
+    const activeCaseId = caseId || convRecord?.caseId;
+
+    // Validate case collaborator access
+    if (activeCaseId) {
+      const collab = await prisma.caseCollaborator.findUnique({
+        where: {
+          caseId_userId: {
+            caseId: activeCaseId,
+            userId,
+          },
+        },
+      });
+      if (!collab) {
+        res.status(403).json({
+          status: "error",
+          message: "Access Denied: You do not have permissions for the associated case.",
+        });
+        return;
+      }
+    }
+
+    // Build case context prompt if caseId is active
+    let caseContextPrompt = "";
+    if (activeCaseId) {
+      const caseData = await prisma.case.findUnique({
+        where: { id: activeCaseId },
+        include: {
+          facts: {
+            orderBy: { orderIndex: "asc" },
+            take: 10,
+          },
+          parties: {
+            take: 10,
+          },
+          notes: {
+            where: {
+              OR: [
+                { isPrivate: false },
+                { createdById: userId },
+              ],
+            },
+            include: { createdBy: { select: { name: true } } },
+            orderBy: { createdAt: "desc" },
+            take: 5,
+          },
+          researches: {
+            orderBy: { createdAt: "desc" },
+            take: 3,
+          },
+          documents: {
+            select: { name: true, fileType: true },
+            take: 10,
+          },
+        },
+      });
+
+      if (caseData) {
+        const factsStr = caseData.facts.map((f) => `- ${f.title}: ${f.description}${f.isImportant ? " (Important)" : ""}`).join("\n");
+        const partiesStr = caseData.parties.map((p) => `- ${p.name} (${p.partyType}${p.role ? ` - ${p.role}` : ""})`).join("\n");
+        const notesStr = caseData.notes.map((n) => `- ${n.title}: ${n.content} (by ${n.createdBy?.name || "Unknown"})`).join("\n");
+        const researchStr = caseData.researches.map((r) => `- Query: ${r.query}\n  Analysis Summary: ${r.aiAnalysis}`).join("\n");
+        const docsStr = caseData.documents.map((d) => `- ${d.name} (${d.fileType})`).join("\n");
+
+        caseContextPrompt = `=== CASE FILES AND METADATA ===
+Title: ${caseData.title}
+Case Number: ${caseData.caseNumber}
+Court: ${caseData.court}
+Client: ${caseData.clientName}
+Opposing Party: ${caseData.opposingParty}
+Description: ${caseData.description || "N/A"}
+
+${factsStr ? `Key Facts:\n${factsStr}\n` : ""}
+${partiesStr ? `Involved Parties:\n${partiesStr}\n` : ""}
+${notesStr ? `Case Notes & Arguments:\n${notesStr}\n` : ""}
+${researchStr ? `Prior Saved Research:\n${researchStr}\n` : ""}
+${docsStr ? `Case Documents:\n${docsStr}\n` : ""}
+=================================
+Use the above case context to answer the user's question accurately. Focus your response on the specifics of this case.
+
+`;
+      }
+    }
+
     // 2. Persist user message to PostgreSQL
     const userMsgRecord = await conversationService.addMessage(convId, "user", trimmedMessage);
 
@@ -138,11 +227,12 @@ router.post("/chat", requireAuth, async (req: AuthenticatedRequest, res: Respons
 
     // 4. Resolve query context
     const resolved = await contextResolverService.resolveContext(convId, trimmedMessage);
+    const finalQuery = caseContextPrompt ? `${caseContextPrompt}\nQuestion: ${resolved.query}` : resolved.query;
 
     // 5. Query LexAI RAG API
     let lexaiResult;
     try {
-      lexaiResult = await lexaiService.ask(resolved.query);
+      lexaiResult = await lexaiService.ask(finalQuery);
     } catch (lexErr: unknown) {
       const err = lexErr as { message?: string };
       console.error("[LexAI] API Call Failed:", err.message);
@@ -206,6 +296,51 @@ router.post("/chat", requireAuth, async (req: AuthenticatedRequest, res: Respons
       status: "error",
       message: err.message || "An unexpected error occurred processing your AI request.",
     });
+  }
+});
+// POST /api/ai/compare-authorities
+router.post("/compare-authorities", requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const userId = req.user!.id;
+    const { query, authorities, caseId } = req.body;
+
+    if (!authorities || !Array.isArray(authorities) || authorities.length < 2) {
+      res.status(400).json({ status: "error", message: "At least two authorities are required for comparison." });
+      return;
+    }
+
+    if (caseId) {
+      const collab = await prisma.caseCollaborator.findUnique({
+        where: { caseId_userId: { caseId, userId } },
+      });
+      if (!collab) {
+        res.status(403).json({ status: "error", message: "Access Denied." });
+        return;
+      }
+    }
+
+    const prompt = `You are a legal AI assistant. Compare the following legal authorities regarding the query: "${query}".
+
+Authorities:
+${authorities.map((a: any, i: number) => `Authority ${i+1}:\nTitle: ${a.title}\nSnippet: ${a.snippet}`).join("\n\n")}
+
+Provide a structured comparison highlighting:
+1. Legal Issue Addressed
+2. Core Principle of each
+3. Relevant differences or similarities
+4. Potential applicability or limitations (Use cautious wording like "These authorities appear distinguishable because...").
+Do NOT fabricate any legal facts.`;
+
+    const lexaiResult = await lexaiService.ask(prompt);
+    
+    res.status(200).json({
+      status: "success",
+      data: { comparison: lexaiResult.answer }
+    });
+  } catch (error: unknown) {
+    const err = error as { message?: string };
+    console.error("[Compare Authorities Error]:", err.message);
+    res.status(500).json({ status: "error", message: "Failed to compare authorities." });
   }
 });
 

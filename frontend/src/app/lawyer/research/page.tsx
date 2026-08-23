@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { api, AIChatMessage } from "@/lib/api";
+import { useEffect, useState } from "react";
+import { api, AIChatMessage, CaseItem } from "@/lib/api";
 import {
   Search,
   BookOpen,
@@ -16,6 +16,17 @@ import PageHeader from "@/components/app/page-header";
 
 export default function LegalResearchPage() {
   const [searchQuery, setSearchQuery] = useState("");
+  
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      const q = params.get("q");
+      if (q) setSearchQuery(q);
+      const cId = params.get("caseId");
+      if (cId) setSelectedCaseId(cId);
+    }
+  }, []);
+
   const [selectedAct, setSelectedAct] = useState("ALL");
   const [selectedCourt, setSelectedCourt] = useState("ALL");
   const [selectedCategory, setSelectedCategory] = useState("ALL");
@@ -23,6 +34,68 @@ export default function LegalResearchPage() {
   const [searching, setSearching] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const [result, setResult] = useState<AIChatMessage | null>(null);
+
+  const [cases, setCases] = useState<CaseItem[]>([]);
+  const [selectedCaseId, setSelectedCaseId] = useState("");
+  const [savingResearch, setSavingResearch] = useState(false);
+
+  const [comparing, setComparing] = useState(false);
+  const [comparisonResult, setComparisonResult] = useState("");
+  const [selectedAuthorities, setSelectedAuthorities] = useState<number[]>([]);
+  
+  // Load cases for linkage
+  useEffect(() => {
+    api.getCases()
+      .then((res) => {
+        if (res && res.status === "success") {
+          setCases(res.data.cases || []);
+        }
+      })
+      .catch(console.error);
+  }, []);
+
+  const handleSaveToCase = async () => {
+    if (!selectedCaseId || !result) return;
+    setSavingResearch(true);
+    try {
+      await api.saveCaseResearch(selectedCaseId, {
+        query: searchQuery,
+        aiAnalysis: result.content,
+        sources: JSON.stringify(result.sources || []),
+        citations: JSON.stringify(result.claims || []),
+      });
+      alert("Research successfully saved and linked to case file!");
+    } catch (err: unknown) {
+      console.error("[Save Research Error]:", err);
+      alert("Failed to save research to case.");
+    } finally {
+      setSavingResearch(false);
+    }
+  };
+
+  const handleSaveAsNote = async () => {
+    if (!selectedCaseId || !result) return;
+    try {
+      const content = `LEGAL RESEARCH NOTE\nQuery: ${searchQuery}\n\nANALYSIS:\n${result.content}\n\nSOURCES:\n${(result.sources || []).map(s => `- ${s.title}`).join("\\n")}\n`;
+      const res = await api.addCaseNote(selectedCaseId, {
+        title: `Research Note: ${searchQuery.substring(0, 30)}...`,
+        content,
+        isPrivate: false
+      });
+      if (res.status === "success") {
+        alert("Research saved as Case Note.");
+      } else {
+        alert("Failed to save note.");
+      }
+    } catch (err: unknown) {
+      console.error(err);
+      alert("Error saving note.");
+    }
+  };
+
+  const selectedCaseData = cases.find(c => c.id === selectedCaseId);
+  const hasUpcomingHearing = selectedCaseData?.events && selectedCaseData.events.length > 0;
+  const nextHearingId = hasUpcomingHearing ? selectedCaseData.events![0].id : null;
 
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -42,9 +115,11 @@ export default function LegalResearchPage() {
       : searchQuery.trim();
 
     try {
-      const res = await api.sendChatMessage(prompt);
+      const res = await api.sendChatMessage(prompt, undefined, selectedCaseId || undefined);
       if (res && res.status === "success" && res.data.message) {
         setResult(res.data.message);
+        setSelectedAuthorities([]);
+        setComparisonResult("");
       } else {
         setErrorMessage("Legal research query failed. Please try again.");
       }
@@ -54,6 +129,31 @@ export default function LegalResearchPage() {
     } finally {
       setSearching(false);
     }
+  };
+
+  const handleCompare = async () => {
+    if (selectedAuthorities.length < 2) return;
+    setComparing(true);
+    setErrorMessage("");
+    try {
+      const authoritiesToCompare = selectedAuthorities.map(idx => result?.sources?.[idx]).filter(Boolean) as Array<{ title: string; snippet: string; category?: string }>;
+      const res = await api.compareAuthorities(searchQuery, authoritiesToCompare, selectedCaseId || undefined);
+      if (res.status === "success") {
+        setComparisonResult(res.data.comparison);
+      } else {
+        setErrorMessage((res as any).message || "Failed to compare authorities.");
+      }
+    } catch (err: unknown) {
+      setErrorMessage("Failed to compare authorities.");
+    } finally {
+      setComparing(false);
+    }
+  };
+
+  const toggleAuthority = (idx: number) => {
+    setSelectedAuthorities(prev => 
+      prev.includes(idx) ? prev.filter(i => i !== idx) : [...prev, idx]
+    );
   };
 
   const sampleResearchTopics = [
@@ -201,14 +301,59 @@ export default function LegalResearchPage() {
         <div className="space-y-6 animate-fade-in">
           {/* AI Analysis Card */}
           <div className="bg-[#FFFDF8] border border-[#E2D5C1] rounded-3xl p-6 shadow-xs space-y-4">
-            <div className="flex items-center justify-between border-b border-[#E2D5C1]/40 pb-3">
-              <span className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-[#A66A22] bg-[#A66A22]/10 px-3 py-1 rounded-full">
-                <Sparkles className="w-4 h-4" />
-                <span>AI Legal Analysis</span>
-              </span>
-              <span className="text-[10px] text-[#766B5F] font-semibold">
-                Grounded Statutory Reasoning
-              </span>
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#E2D5C1]/40 pb-3">
+              <div className="flex items-center gap-2">
+                <span className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-[#A66A22] bg-[#A66A22]/10 px-3 py-1 rounded-full">
+                  <Sparkles className="w-4 h-4" />
+                  <span>AI Legal Analysis</span>
+                </span>
+              </div>
+              
+              {/* Link to Case File Control */}
+              {cases.length > 0 && (
+                <div className="flex items-center gap-2">
+                  <select
+                    value={selectedCaseId}
+                    onChange={(e) => setSelectedCaseId(e.target.value)}
+                    className="h-8 px-2.5 text-[11px] font-semibold text-[#21170F] bg-[#FFFDF8] border border-[#E2D5C1] rounded-lg outline-none"
+                  >
+                    <option value="">-- Link to Case File --</option>
+                    {cases.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.caseNumber} - {c.title}
+                      </option>
+                    ))}
+                  </select>
+                  {hasUpcomingHearing && (
+                    <a
+                      href={`/lawyer/cases/${selectedCaseId}/hearings/${nextHearingId}/prepare`}
+                      target="_blank"
+                      className="h-8 px-3.5 bg-blue-600 hover:bg-blue-700 text-white text-[11px] font-bold rounded-lg transition-all flex items-center gap-1"
+                    >
+                      Use in Hearing Prep
+                    </a>
+                  )}
+                  <button
+                    disabled={!selectedCaseId || savingResearch}
+                    onClick={handleSaveAsNote}
+                    className="h-8 px-3.5 bg-[#FFFDF8] hover:bg-[#F8F4EC] border border-[#E2D5C1] text-[#4A3F35] text-[11px] font-bold rounded-lg transition-all disabled:opacity-50 flex items-center gap-1"
+                  >
+                    Save as Note
+                  </button>
+                  <button
+                    disabled={!selectedCaseId || savingResearch}
+                    onClick={handleSaveToCase}
+                    className="h-8 px-3.5 bg-[#A66A22] hover:bg-[#C58A35] text-[#FFFDF8] text-[11px] font-bold rounded-lg transition-all disabled:opacity-50 flex items-center gap-1"
+                  >
+                    {savingResearch ? (
+                      <Loader2 className="w-3 h-3 animate-spin" />
+                    ) : (
+                      <BookOpen className="w-3 h-3" />
+                    )}
+                    <span>Save to Case</span>
+                  </button>
+                </div>
+              )}
             </div>
 
             <div className="prose prose-stone text-xs leading-relaxed text-[#21170F] whitespace-pre-wrap font-medium">
@@ -229,24 +374,56 @@ export default function LegalResearchPage() {
                   {result.sources.map((src, idx) => (
                     <div
                       key={idx}
-                      className="p-3.5 bg-[#F8F4EC]/50 border border-[#E2D5C1]/40 rounded-xl space-y-1"
+                      className="p-3.5 bg-[#F8F4EC]/50 border border-[#E2D5C1]/40 rounded-xl space-y-1 relative"
                     >
-                      <div className="flex items-center justify-between">
+                      <div className="absolute top-3.5 right-3.5">
+                        <input
+                          type="checkbox"
+                          checked={selectedAuthorities.includes(idx)}
+                          onChange={() => toggleAuthority(idx)}
+                          className="w-4 h-4 text-[#A66A22] border-[#E2D5C1] rounded focus:ring-[#A66A22]"
+                        />
+                      </div>
+                      <div className="flex items-center justify-between pr-6">
                         <h4 className="text-xs font-bold text-[#21170F]">{src.title}</h4>
                         <span className="text-[9px] font-bold text-[#A66A22] uppercase tracking-wider bg-[#A66A22]/10 px-2 py-0.5 rounded-md">
                           {src.category}
                         </span>
                       </div>
-                      <p className="text-[11px] text-[#766B5F] italic leading-relaxed">
+                      <p className="text-[11px] text-[#766B5F] italic leading-relaxed pr-6">
                         &ldquo;{src.snippet}&rdquo;
                       </p>
                     </div>
                   ))}
+
+                  {selectedAuthorities.length >= 2 && (
+                    <button
+                      onClick={handleCompare}
+                      disabled={comparing}
+                      className="w-full mt-4 py-2 bg-[#21170F] text-[#FFFDF8] rounded-xl text-xs font-bold shadow-md hover:bg-[#3A2E24] disabled:opacity-50 flex items-center justify-center gap-2"
+                    >
+                      {comparing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Scale className="w-4 h-4 text-[#A66A22]" />}
+                      <span>Compare Selected Authorities</span>
+                    </button>
+                  )}
                 </div>
               ) : (
                 <p className="text-xs text-[#766B5F]">No specific external sources retrieved.</p>
               )}
             </div>
+
+            {/* Compare Authorities Result */}
+            {comparisonResult && (
+              <div className="bg-[#FFFDF8] border border-[#E2D5C1] rounded-3xl p-6 shadow-xs space-y-4 md:col-span-2">
+                <span className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-[#A66A22]">
+                  <Scale className="w-4 h-4 text-[#A66A22]" />
+                  <span>Authority Comparison</span>
+                </span>
+                <div className="prose prose-stone text-xs leading-relaxed text-[#21170F] whitespace-pre-wrap font-medium">
+                  {comparisonResult}
+                </div>
+              </div>
+            )}
 
             {/* Statutory Provisions & Citations Panel */}
             <div className="bg-[#FFFDF8] border border-[#E2D5C1] rounded-3xl p-6 shadow-xs space-y-4">

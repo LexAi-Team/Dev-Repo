@@ -256,6 +256,51 @@ export interface SimulationSessionData {
   evaluation?: SimulationEvaluationData | null;
 }
 
+export interface CaseFactItem {
+  id: string;
+  [key: string]: any;
+}
+
+export interface CasePartyItem {
+  id: string;
+  [key: string]: any;
+}
+
+export interface CaseResearchItem {
+  id: string;
+  [key: string]: any;
+}
+
+export interface CaseActivityItem {
+  id: string;
+  title?: string;
+  action?: string;
+  description?: string;
+  type?: string;
+  createdAt: string;
+  createdBy?: { id: string; name: string };
+  user?: { id: string; name: string; email?: string | null } | null;
+  case?: { id: string; caseNumber: string; title: string } | null;
+  metadata?: string | null;
+  entityType?: string;
+  entityId?: string | null;
+}
+
+export interface CaseIntelligenceItem {
+  id: string;
+  [key: string]: any;
+}
+
+export interface DocumentAnalysisItem {
+  id: string;
+  [key: string]: any;
+}
+
+export interface HearingPreparationItem {
+  id: string;
+  [key: string]: any;
+}
+
 export const api = {
   getProfile: () => apiFetch<UserProfileResponse>("/users/me"),
   updateProfile: (data: Record<string, unknown>) =>
@@ -269,13 +314,20 @@ export const api = {
     apiFetch<{ status: string; data: { notification: unknown } }>(`/notifications/${id}/read`, {
       method: "PATCH",
     }),
-  sendChatMessage: (message: string, conversationId?: string) =>
+  sendChatMessage: (message: string, conversationId?: string, caseId?: string) =>
     apiFetch<AIChatResponse>("/ai/chat", {
       method: "POST",
-      body: JSON.stringify({ message, conversationId }),
+      body: JSON.stringify({ message, conversationId, caseId }),
     }),
-  getConversations: () =>
-    apiFetch<{ status: string; data: { conversations: AIConversationItem[] } }>("/ai/conversations"),
+  compareAuthorities: (query: string, authorities: Array<{ title: string; snippet: string; category?: string }>, caseId?: string) =>
+    apiFetch<{ status: string; data: { comparison: string } }>("/ai/compare-authorities", {
+      method: "POST",
+      body: JSON.stringify({ query, authorities, caseId }),
+    }),
+  getConversations: (caseId?: string) =>
+    apiFetch<{ status: string; data: { conversations: AIConversationItem[] } }>(
+      caseId ? `/ai/conversations?caseId=${caseId}` : "/ai/conversations"
+    ),
   getConversation: (id: string) =>
     apiFetch<{
       status: string;
@@ -289,6 +341,8 @@ export const api = {
     }),
   getStudentDashboardStats: () => apiFetch<StudentDashboardResponse>("/dashboard/student"),
   getLawyerDashboardStats: () => apiFetch<LawyerDashboardResponse>("/dashboard/lawyer"),
+  getLawyerAnalytics: () => apiFetch<{ status: string; data: Record<string, unknown> }>("/dashboard/lawyer/analytics"),
+  getLawyerCollaboration: () => apiFetch<{ status: string; data: Record<string, unknown> }>("/dashboard/lawyer/collaboration"),
   createSimulatorSession: (practiceArea: string, difficulty: string) =>
     apiFetch<{ status: string; data: { session: SimulationSessionData } }>("/simulator/sessions", {
       method: "POST",
@@ -357,6 +411,11 @@ export const api = {
     apiFetch<{ status: string; message: string }>(`/cases/${caseId}/collaborators/${userId}`, {
       method: "DELETE",
     }),
+  handoffCase: (caseId: string, newOwnerId: string) =>
+    apiFetch<{ status: string; message: string }>(`/cases/${caseId}/handoff`, {
+      method: "POST",
+      body: JSON.stringify({ newOwnerId }),
+    }),
   getCaseDocuments: (caseId: string) =>
     apiFetch<{ status: string; data: { documents: CaseDocumentItem[] } }>(`/cases/${caseId}/documents`),
   addCaseDocument: (caseId: string, doc: { name: string; fileUrl: string; fileType?: string; fileSize?: number }) =>
@@ -379,8 +438,69 @@ export const api = {
     apiFetch<{ status: string; message: string }>(`/cases/${caseId}/notes/${noteId}`, {
       method: "DELETE",
     }),
+  getCaseFacts: (caseId: string) =>
+    apiFetch<{ status: string; data: { facts: CaseFactItem[] } }>(`/cases/${caseId}/facts`),
+  addCaseFact: (caseId: string, fact: { title?: string; content?: string; description?: string; dateOccurred?: string; isImportant?: boolean; orderIndex?: number }) =>
+    apiFetch<{ status: string; data: { fact: unknown } }>(`/cases/${caseId}/facts`, {
+      method: "POST",
+      body: JSON.stringify(fact),
+    }),
+  updateCaseFact: (caseId: string, factId: string, fact: { title?: string; content?: string; description?: string; dateOccurred?: string; isImportant?: boolean; orderIndex?: number }) =>
+    apiFetch<{ status: string; data: { fact: unknown } }>(`/cases/${caseId}/facts/${factId}`, {
+      method: "PATCH",
+      body: JSON.stringify(fact),
+    }),
+  deleteCaseFact: (caseId: string, factId: string) =>
+    apiFetch<{ status: string; message: string }>(`/cases/${caseId}/facts/${factId}`, {
+      method: "DELETE",
+    }),
+  getCaseParties: (caseId: string) =>
+    apiFetch<{ status: string; data: { parties: CasePartyItem[] } }>(`/cases/${caseId}/parties`),
+  addCaseParty: (caseId: string, party: { name: string; partyType?: string; type?: string; role?: string | null; contactInfo?: string | null; notes?: string | null }) =>
+    apiFetch<{ status: string; data: { party: unknown } }>(`/cases/${caseId}/parties`, {
+      method: "POST",
+      body: JSON.stringify(party),
+    }),
+  updateCaseParty: (caseId: string, partyId: string, party: { name?: string; partyType?: string; type?: string; role?: string | null; contactInfo?: string | null; notes?: string | null }) =>
+    apiFetch<{ status: string; data: { party: unknown } }>(`/cases/${caseId}/parties/${partyId}`, {
+      method: "PATCH",
+      body: JSON.stringify(party),
+    }),
+  deleteCaseParty: (caseId: string, partyId: string) =>
+    apiFetch<{ status: string; message: string }>(`/cases/${caseId}/parties/${partyId}`, {
+      method: "DELETE",
+    }),
+  getCaseResearches: (caseId: string) =>
+    apiFetch<{ status: string; data: { researches: CaseResearchItem[] } }>(`/cases/${caseId}/research`),
+  saveCaseResearch: (caseId: string, research: { query: string; result?: string; savedAuthorities?: unknown[]; aiAnalysis?: string; sources?: string | unknown[]; citations?: string | unknown[] }) =>
+    apiFetch<{ status: string; data: { research: unknown } }>(`/cases/${caseId}/research`, {
+      method: "POST",
+      body: JSON.stringify(research),
+    }),
+  deleteCaseResearch: (caseId: string, researchId: string) =>
+    apiFetch<{ status: string; message: string }>(`/cases/${caseId}/research/${researchId}`, {
+      method: "DELETE",
+    }),
+  getCaseActivity: (caseId: string) =>
+    apiFetch<{ status: string; data: { activities: CaseActivityItem[] } }>(`/cases/${caseId}/activity`),
+  getCaseIntelligence: (caseId: string) =>
+    apiFetch<{ status: string; data: { intelligence: CaseIntelligenceItem } }>(`/cases/${caseId}/intelligence`),
+  generateCaseIntelligence: (caseId: string) =>
+    apiFetch<{ status: string; data: { intelligence: CaseIntelligenceItem } }>(`/cases/${caseId}/intelligence/generate`, {
+      method: "POST"
+    }),
+  analyzeCaseDocument: (caseId: string, documentId: string) =>
+    apiFetch<{ status: string; data: { analysis: DocumentAnalysisItem } }>(`/cases/${caseId}/documents/${documentId}/analyze`, {
+      method: "POST"
+    }),
   getTasks: (caseId?: string) =>
     apiFetch<{ status: string; data: { tasks: unknown[] } }>(caseId ? `/tasks?caseId=${caseId}` : "/tasks"),
+  getHearingPreparation: (caseId: string, eventId: string) =>
+    apiFetch<{ status: string; data: { hearingPrep: HearingPreparationItem } }>(`/cases/${caseId}/hearings/${eventId}/prepare`),
+  generateHearingPreparation: (caseId: string, eventId: string) =>
+    apiFetch<{ status: string; data: { hearingPrep: HearingPreparationItem } }>(`/cases/${caseId}/hearings/${eventId}/prepare`, {
+      method: "POST"
+    }),
   createTask: (taskData: { title: string; description?: string; priority?: string; dueAt?: string; assignedToId?: string; caseId?: string }) =>
     apiFetch<{ status: string; data: { task: unknown } }>("/tasks", {
       method: "POST",

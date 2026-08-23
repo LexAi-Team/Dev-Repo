@@ -1,12 +1,17 @@
 import prisma from "../config/prisma.js";
 
 export class ConversationService {
-  async getConversations(userId: string) {
+  async getConversations(userId: string, caseId?: string) {
+    const where: any = { userId };
+    if (caseId) {
+      where.caseId = caseId;
+    }
     return prisma.aIConversation.findMany({
-      where: { userId },
+      where,
       select: {
         id: true,
         title: true,
+        caseId: true,
         createdAt: true,
         updatedAt: true,
         _count: {
@@ -35,10 +40,24 @@ export class ConversationService {
       throw new Error("FORBIDDEN: You do not have permission to access this conversation.");
     }
 
+    if (conversation.caseId) {
+      const collab = await prisma.caseCollaborator.findUnique({
+        where: {
+          caseId_userId: {
+            caseId: conversation.caseId,
+            userId,
+          },
+        },
+      });
+      if (!collab) {
+        throw new Error("FORBIDDEN: You are no longer a collaborator on the associated case.");
+      }
+    }
+
     return conversation;
   }
 
-  async createConversation(userId: string, initialMessage: string) {
+  async createConversation(userId: string, initialMessage: string, caseId?: string) {
     // Generate concise title from initial user message
     const title = initialMessage.length > 40
       ? `${initialMessage.substring(0, 37)}...`
@@ -48,6 +67,7 @@ export class ConversationService {
       data: {
         userId,
         title,
+        caseId: caseId || null,
       },
     });
   }
