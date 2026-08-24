@@ -82,7 +82,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       if (!response.ok) {
         const errResult = await response.json().catch(() => ({}));
-        throw new Error((errResult as { message?: string }).message || "Failed to synchronize profile.");
+        const message = (errResult as { message?: string }).message || `Server error (${response.status})`;
+        throw {
+          code: "sync/failed",
+          message,
+        };
       }
 
       const result = await response.json() as {
@@ -117,13 +121,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           router.push("/register");
         }
       }
-    } catch (error) {
-      console.debug("[Auth] Backend sync failed:", error);
+    } catch (error: unknown) {
+      console.error("[Auth] Backend sync failed:", error);
       setUser(null);
       setIsAuthenticated(false);
+      const err = error as { code?: string; message?: string };
       throw {
-        code: "db/connection-error",
-        message: "Unable to connect to the application database.",
+        code: err?.code || "sync/failed",
+        message: err?.message || "Unable to synchronize user profile.",
       };
     }
   }, [pathname, router]);

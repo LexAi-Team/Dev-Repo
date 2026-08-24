@@ -30,9 +30,13 @@ export function getFirebaseAuthErrorMessage(error: unknown): string {
       return "Authentication method disabled in Firebase Console.";
     case "auth/google-only":
       return err.message || "This account uses Google Sign-In. Please continue with Google.";
+    case "sync/failed":
+      return err.message || "Failed to synchronize profile with the server.";
     case "db/connection-error":
       return "Unable to connect to the application database.";
     default:
-      return "Unable to complete authentication. Please try again.";
+      return err.message && !err.message.includes("object")
+        ? err.message
+        : "Unable to complete authentication. Please try again.";
   }
 }
