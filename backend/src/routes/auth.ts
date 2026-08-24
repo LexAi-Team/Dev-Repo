@@ -122,28 +122,22 @@ router.post("/sync", requireAuth, async (req: Request, res: Response, next: Next
       });
 
       if (role === UserRole.STUDENT) {
-        if (!university || !course || yearOfStudy === undefined) {
-          throw new Error("Student profile fields (university, course, yearOfStudy) are required.");
-        }
         await tx.studentProfile.create({
           data: {
             userId: newUser.id,
-            university,
-            course,
-            yearOfStudy,
+            university: university || "Law University",
+            course: course || "LL.B",
+            yearOfStudy: yearOfStudy !== undefined ? yearOfStudy : 1,
           },
         });
       } else if (role === UserRole.LAWYER) {
-        if (!specialization || experienceYears === undefined || !enrollmentNumber || !location) {
-          throw new Error("Lawyer profile fields (specialization, experienceYears, enrollmentNumber, location) are required.");
-        }
         await tx.lawyerProfile.create({
           data: {
             userId: newUser.id,
-            specialization,
-            experienceYears,
-            enrollmentNumber,
-            location,
+            specialization: specialization || "General Practice",
+            experienceYears: experienceYears !== undefined ? experienceYears : 1,
+            enrollmentNumber: enrollmentNumber || `BC/${new Date().getFullYear()}/${Math.floor(1000 + Math.random() * 9000)}`,
+            location: location || "India",
             professionalTitle: "Advocate",
           },
         });
